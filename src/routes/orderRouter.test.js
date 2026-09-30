@@ -31,6 +31,20 @@ test("get menu", async () => {
   });
 });
 
+test("add to menu - not admin", async () => {
+  const newPizza = {
+    title: "Saucy",
+    image: "pizza.png",
+    price: 0.02,
+    description: "nothing except sauce",
+  };
+  //without sending a token the response is 401, with a token it will process and say you're not an admin
+  const menuRes = await request(app).put("/api/order/menu").set("Authorization", `Bearer ${testUserAuthToken}`).send(newPizza);
+  expect(menuRes.status).toBe(403);
+});
+
+test("add to menu - admin", () => {});
+
 function expectValidJwt(potentialJwt) {
   expect(potentialJwt).toMatch(/^[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*$/);
 }
