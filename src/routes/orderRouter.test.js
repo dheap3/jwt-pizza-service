@@ -66,7 +66,43 @@ test("get orders", async () => {
   }
 });
 
-test("create order", async () => {});
+test("create order", async () => {
+  const beforeRes = await request(app).get("/api/order").set("Authorization", `Bearer ${testUserAuthToken}`);
+  expect(beforeRes.status).toBe(200);
+  const orderCountBefore = beforeRes.body.orders.length;
+
+  const orderRes = await request(app).get("/api/order/menu");
+  expect(orderRes.status).toBe(200);
+  expect(orderRes.body.length).toBeGreaterThan(0);
+
+  const fetchMock = jest.spyOn(global, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({}),
+  });
+
+  const newOrder = {
+    franchiseId: 1,
+    storeId: 1,
+    items: [
+      {
+        menuId: orderRes.body[0].id,
+        description: orderRes.body[0].title,
+        price: Number(orderRes.body[0].price),
+      },
+    ],
+  };
+
+  try {
+    const createRes = await request(app).post("/api/order").set("Authorization", `Bearer ${testUserAuthToken}`).send(newOrder);
+    expect(createRes.status).toBe(200);
+  } finally {
+    fetchMock.mockRestore();
+  }
+
+  const afterRes = await request(app).get("/api/order").set("Authorization", `Bearer ${testUserAuthToken}`);
+  expect(afterRes.status).toBe(200);
+  expect(afterRes.body.orders).toHaveLength(orderCountBefore + 1);
+});
 
 //from this point the tests are as admin
 
