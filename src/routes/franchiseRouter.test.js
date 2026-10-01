@@ -70,9 +70,16 @@ test("create franchise - not admin", async () => {
   expect(franchiseRes.status).toBe(403);
 });
 
-test("delete franchise", async () => {
+test("delete franchise - not admin", async () => {
   const franchise = await DB.createFranchise({ name: `Delete Franchise ${randomName()}`, admins: [] });
   const franchiseRes = await request(app).delete(`/api/franchise/${franchise.id}`);
+
+  expect(franchiseRes.status).toBe(401);
+});
+
+test("delete franchise - admin", async () => {
+  const franchise = await DB.createFranchise({ name: `Delete Franchise ${randomName()}`, admins: [] });
+  const franchiseRes = await request(app).delete(`/api/franchise/${franchise.id}`).set("Authorization", `Bearer ${adminAuthToken}`);
 
   expect(franchiseRes.status).toBe(200);
   expect(franchiseRes.body).toMatchObject({ message: "franchise deleted" });
