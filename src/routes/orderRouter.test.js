@@ -53,7 +53,48 @@ test("get orders", async () => {
   }
 });
 
-test("create order", async () => {
+test("add to menu - not admin", async () => {
+  //without sending a token the response is 401, with a token it will process and say you're not an admin
+  const menuRes = await request(app).put("/api/order/menu").set("Authorization", `Bearer ${testUserAuthToken}`).send(newPizza);
+  expect(menuRes.status).toBe(403);
+});
+
+test("add to menu - admin", async () => {
+
+  const menuRes = await request(app)
+    .put("/api/order/menu")
+    .set("Authorization", `Bearer ${adminAuthToken}`)
+    .send(newPizza);
+
+  expect(menuRes.status).toBe(200);
+  const addedPizza = menuRes.body.find((pizza) => pizza.title === newPizza.title);
+  expect(addedPizza).toMatchObject({
+    id: expect.any(Number),
+    title: newPizza.title,
+    image: newPizza.image,
+    description: newPizza.description,
+    price: newPizza.price,
+  });
+});
+
+test("get menu", async () => { //after add to menu because of the dependency to know its working
+  await request(app).put("/api/order/menu").set("Authorization", `Bearer ${adminAuthToken}`).send(newPizza);
+  //notice it sends as well to make sure there is a pizza there
+  const menuRes = await request(app).get("/api/order/menu");
+  expect(menuRes.status).toBe(200);
+  expect(Array.isArray(menuRes.body)).toBe(true);
+  expect(menuRes.body.length).toBeGreaterThan(0);
+  const pizza = menuRes.body.find((pizza) => pizza.title === newPizza.title);
+  expect(pizza).toMatchObject({
+    id: expect.any(Number),
+    title: expect.any(String),
+    image: expect.any(String),
+    price: expect.any(Number),
+    description: expect.any(String),
+  });
+});
+
+test("create order", async () => { //after get menu because of the dependency to know its working
   const beforeRes = await request(app).get("/api/order").set("Authorization", `Bearer ${testUserAuthToken}`);
   expect(beforeRes.status).toBe(200);
   const orderCountBefore = beforeRes.body.orders.length;
@@ -89,47 +130,6 @@ test("create order", async () => {
   const afterRes = await request(app).get("/api/order").set("Authorization", `Bearer ${testUserAuthToken}`);
   expect(afterRes.status).toBe(200);
   expect(afterRes.body.orders).toHaveLength(orderCountBefore + 1);
-});
-
-test("add to menu - not admin", async () => {
-  //without sending a token the response is 401, with a token it will process and say you're not an admin
-  const menuRes = await request(app).put("/api/order/menu").set("Authorization", `Bearer ${testUserAuthToken}`).send(newPizza);
-  expect(menuRes.status).toBe(403);
-});
-
-test("add to menu - admin", async () => {
-
-  const menuRes = await request(app)
-    .put("/api/order/menu")
-    .set("Authorization", `Bearer ${adminAuthToken}`)
-    .send(newPizza);
-
-  expect(menuRes.status).toBe(200);
-  const addedPizza = menuRes.body.find((pizza) => pizza.title === newPizza.title);
-  expect(addedPizza).toMatchObject({
-    id: expect.any(Number),
-    title: newPizza.title,
-    image: newPizza.image,
-    description: newPizza.description,
-    price: newPizza.price,
-  });
-});
-
-test("get menu", async () => {
-  await request(app).put("/api/order/menu").set("Authorization", `Bearer ${adminAuthToken}`).send(newPizza);
-  //notice it sends as well to make sure there is a pizza there
-  const menuRes = await request(app).get("/api/order/menu");
-  expect(menuRes.status).toBe(200);
-  expect(Array.isArray(menuRes.body)).toBe(true);
-  expect(menuRes.body.length).toBeGreaterThan(0);
-  const pizza = menuRes.body.find((pizza) => pizza.title === newPizza.title);
-  expect(pizza).toMatchObject({
-    id: expect.any(Number),
-    title: expect.any(String),
-    image: expect.any(String),
-    price: expect.any(Number),
-    description: expect.any(String),
-  });
 });
 
 function expectValidJwt(potentialJwt) {
