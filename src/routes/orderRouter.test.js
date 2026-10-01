@@ -46,6 +46,28 @@ test("add to menu - not admin", async () => {
   expect(menuRes.status).toBe(403);
 });
 
+test("get orders", async () => {
+  const orderRes = await request(app).get("/api/order").set("Authorization", `Bearer ${testUserAuthToken}`);
+
+  expect(orderRes.status).toBe(200);
+  expect(orderRes.body).toMatchObject({
+    dinerId: expect.any(Number),
+    orders: expect.any(Array),
+    page: 1,
+  });
+  for (const order of orderRes.body.orders) {
+    expect(order).toMatchObject({
+      id: expect.any(Number),
+      franchiseId: expect.any(Number),
+      storeId: expect.any(Number),
+      date: expect.any(String),
+      items: expect.any(Array),
+    });
+  }
+});
+
+test("create order", async () => {});
+
 //from this point the tests are as admin
 
 test("add to menu - admin", async () => {
