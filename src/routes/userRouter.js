@@ -87,6 +87,10 @@ userRouter.delete(
     }
 
     const userId = Number(req.params.userId);
+    if (userId === req.user.id) {
+      throw new StatusCodeError('unable to delete yourself', 403);
+    }
+
     await DB.deleteUser(userId);
     res.json({ message: 'user deleted' });
   })

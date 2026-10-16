@@ -74,6 +74,16 @@ test("delete user - admin", async () => {
   expect(loginRes.status).toBe(404);
 });
 
+test("delete user - admin cannot delete themselves", async () => {
+  const adminToken = await loginAdmin();
+  const meRes = await request(app).get("/api/user/me").set("Authorization", "Bearer " + adminToken);
+  const deleteRes = await request(app)
+    .delete(`/api/user/${meRes.body.id}`)
+    .set("Authorization", "Bearer " + adminToken);
+
+  expect(deleteRes.status).toBe(403);
+});
+
 function expectValidJwt(potentialJwt) {
   expect(potentialJwt).toMatch(/^[a-zA-Z0-9-_]*\.[a-zA-Z0-9-_]*\.[a-zA-Z0-9-_]*$/);
 }
