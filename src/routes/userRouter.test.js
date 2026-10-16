@@ -47,10 +47,31 @@ test("update user", async () => {
   expectValidJwt(userRes.body.token);
 });
 
-test("delete user", async () => {
-  const userRes = await request(app).delete(`/api/user/${testUserId}`).set("Authorization", `Bearer ${testUserAuthToken}`);
+test("delete user unauthorized", async () => {
+  const [user] = await registerUser(request(app));
+  const deleteRes = await request(app).delete(`/api/user/${user.id}`);
+  expect(deleteRes.status).toBe(401);
+});
 
-  expect(userRes.status).toBe(200);
+test("delete user - not admin", async () => {
+  const [user, userToken] = await registerUser(request(app));
+  const deleteRes = await request(app)
+    .delete(`/api/user/${user.id}`)
+    .set("Authorization", "Bearer " + userToken);
+  expect(deleteRes.status).toBe(403);
+});
+
+test("delete user - admin", async () => {
+  const [user] = await registerUser(request(app));
+  const deleteRes = await request(app)
+    .delete(`/api/user/${user.id}`)
+    .set("Authorization", "Bearer " + (await loginAdmin()));
+
+  expect(deleteRes.status).toBe(200);
+  expect(deleteRes.body).toMatchObject({ message: "user deleted" });
+
+  const loginRes = await request(app).put("/api/auth").send(user);
+  expect(loginRes.status).toBe(404);
 });
 
 function expectValidJwt(potentialJwt) {
