@@ -5,6 +5,8 @@ const { authRouter } = require('./authRouter.js');
 const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
 
 const orderRouter = express.Router();
+const metrics = require('../metrics.js');
+
 
 orderRouter.docs = [
   {
@@ -73,21 +75,38 @@ orderRouter.get(
 );
 
 // createOrder
+//metrics tracks the price, calculates latency from the start time and end time, and then sends the metrics (success/failure, latency, price, itemCount)
 orderRouter.post(
   '/',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     const orderReq = req.body;
     const order = await DB.addDinerOrder(req.user, orderReq);
-    const r = await fetch(`${config.factory.url}/api/order`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${config.factory.apiKey}` },
-      body: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }),
-    });
-    const j = await r.json();
+
+    const price = order.items.reduce((sum, item) => sum + item.price, 0);
+    const start = Date.now();
+
+    // declared outside the try so the r.ok check below can use them
+    let r;
+    let j;
+    try {
+      r = await fetch(`${config.factory.url}/api/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', authorization: `Bearer ${config.factory.apiKey}` },
+        body: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }),
+      });
+      j = await r.json();
+    } catch (error) {
+      metrics.pizzaPurchase(false, Date.now() - start, 0, 0);
+      return res.status(500).send({ message: 'Failed to fulfill order at factory', error: error.message });
+    }
+    const latency = Date.now() - start;
+
     if (r.ok) {
+      metrics.pizzaPurchase(true, latency, price, order.items.length);
       res.send({ order, followLinkToEndChaos: j.reportUrl, jwt: j.jwt });
     } else {
+      metrics.pizzaPurchase(false, latency, 0, 0);
       res.status(500).send({ message: 'Failed to fulfill order at factory', followLinkToEndChaos: j.reportUrl });
     }
   })

@@ -5,6 +5,7 @@ const { asyncHandler } = require('../endpointHelper.js');
 const { DB, Role } = require('../database/database.js');
 
 const authRouter = express.Router();
+const metrics = require('../metrics.js');
 
 authRouter.docs = [
   {
@@ -66,6 +67,7 @@ authRouter.post(
     const user = await DB.addUser({ name, email, password, roles: [{ role: Role.Diner }] });
     const auth = await setAuth(user);
     res.json({ user: user, token: auth });
+    metrics.userLoggedIn(user.id);
   })
 );
 
@@ -77,6 +79,7 @@ authRouter.put(
     const user = await DB.getUser(email, password);
     const auth = await setAuth(user);
     res.json({ user: user, token: auth });
+    metrics.userLoggedIn(user.id);
   })
 );
 
@@ -87,6 +90,7 @@ authRouter.delete(
   asyncHandler(async (req, res) => {
     await clearAuth(req);
     res.json({ message: 'logout successful' });
+    metrics.userLoggedOut(req.user.id);
   })
 );
 
