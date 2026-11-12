@@ -65,6 +65,7 @@ authRouter.post(
       return res.status(400).json({ message: 'name, email, and password are required' });
     }
     const user = await DB.addUser({ name, email, password, roles: [{ role: Role.Diner }] });
+    metrics.authAttempt(true);
     const auth = await setAuth(user);
     res.json({ user: user, token: auth });
     metrics.userLoggedIn(user.id);
@@ -76,7 +77,15 @@ authRouter.put(
   '/',
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-    const user = await DB.getUser(email, password);
+    // DB.getUser throws on a bad email/password, so catch it to count the failure
+    let user;
+    try {
+      user = await DB.getUser(email, password);
+    } catch (error) {
+      metrics.authAttempt(false);
+      throw error; // keep the original 404 response
+    }
+    metrics.authAttempt(true);
     const auth = await setAuth(user);
     res.json({ user: user, token: auth });
     metrics.userLoggedIn(user.id);
