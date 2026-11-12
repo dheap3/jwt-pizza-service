@@ -102,19 +102,27 @@ function createMetric(metricName, metricValue, metricUnit, metricType, valueType
 // --- HTTP metrics --- 
 // Average request latency since the last send; resets each interval
 function getAverageEndpointLatency() {
-  const avg = endpointLatency.count === 0 ? 0 : endpointLatency.total / endpointLatency.count;
+  if (endpointLatency.count === 0) {
+    return null; // no requests this interval, so send nothing
+  }
+  const avg = endpointLatency.total / endpointLatency.count;
   endpointLatency.total = 0;
   endpointLatency.count = 0;
   return avg;
 }
 
 function httpMetrics() {
-  return [
-    ...Object.keys(requests).map((method) =>
-      createMetric('requests', requests[method], '1', 'sum', 'asInt', { method })
-    ),
-    createMetric('endpointLatency', getAverageEndpointLatency(), 'ms', 'gauge', 'asDouble'),
-  ];
+  const metrics = Object.keys(requests).map((method) =>
+    createMetric('requests', requests[method], '1', 'sum', 'asInt', { method })
+  );
+
+  // skip latency when there were no requests; Grafana rejects a null value
+  const avgLatency = getAverageEndpointLatency();
+  if (avgLatency !== null) {
+    metrics.push(createMetric('endpointLatency', avgLatency, 'ms', 'gauge', 'asDouble'));
+  }
+
+  return metrics;
 }
 
 // --- System metrics --- 
@@ -152,20 +160,30 @@ function authMetrics() {
 // --- Purchase metrics --- 
 // Average latency since the last send; resets so each interval stands alone
 function getAveragePurchaseLatency() {
-  const avg = purchases.latencyCount === 0 ? 0 : purchases.latencyTotal / purchases.latencyCount;
+  if (purchases.latencyCount === 0) {
+    return null; // no orders this interval, so send nothing
+  }
+  const avg = purchases.latencyTotal / purchases.latencyCount;
   purchases.latencyTotal = 0;
   purchases.latencyCount = 0;
   return avg;
 }
 
 function purchaseMetrics() {
-  return [
+  const metrics = [
     createMetric('pizzaPurchases', purchases.success, '1', 'sum', 'asInt', { status: 'success' }),
     createMetric('pizzaPurchases', purchases.failure, '1', 'sum', 'asInt', { status: 'failure' }),
     createMetric('pizzasSold', purchases.pizzas, '1', 'sum', 'asInt'),
     createMetric('revenue', purchases.revenue, 'BTC', 'sum', 'asDouble'),
-    createMetric('pizzaLatency', getAveragePurchaseLatency(), 'ms', 'gauge', 'asDouble'),
   ];
+
+  // skip latency when there were no orders; Grafana rejects a null value
+  const avgLatency = getAveragePurchaseLatency();
+  if (avgLatency !== null) {
+    metrics.push(createMetric('pizzaLatency', avgLatency, 'ms', 'gauge', 'asDouble'));
+  }
+
+  return metrics;
 }
 
 // --- Send to Grafana --- 
@@ -182,9 +200,11 @@ function sendMetricToGrafana(metrics) {
       'Content-Type': 'application/json',
     },
   })
-    .then((response) => {
+    .then(async (response) => {
       if (!response.ok) {
-        throw new Error(`HTTP status: ${response.status}`);
+        // include Grafana's explanation so a rejected payload is easy to diagnose
+        const reason = await response.text();
+        throw new Error(`HTTP status: ${response.status} ${reason}`);
       }
     })
     .catch((error) => {
