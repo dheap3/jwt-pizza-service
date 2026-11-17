@@ -6,6 +6,7 @@ const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
 
 const orderRouter = express.Router();
 const metrics = require('../metrics.js');
+const logger = require('../logger.js');
 
 
 orderRouter.docs = [
@@ -85,6 +86,7 @@ orderRouter.post(
 
     const price = order.items.reduce((sum, item) => sum + item.price, 0);
     const start = Date.now();
+    const factoryReq = { diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order };
 
     // declared outside the try so the r.ok check below can use them
     let r;
@@ -96,8 +98,10 @@ orderRouter.post(
         body: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }),
       });
       j = await r.json();
+      logger.factoryLogger(factoryReq, j, r.status);
     } catch (error) {
       metrics.pizzaPurchase(false, Date.now() - start, 0, 0);
+      logger.factoryLogger(factoryReq, {error: error.message}, r.status);
       return res.status(500).send({ message: 'Failed to fulfill order at factory', error: error.message });
     }
     const latency = Date.now() - start;
