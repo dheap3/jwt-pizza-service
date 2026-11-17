@@ -101,7 +101,7 @@ orderRouter.post(
       logger.factoryLogger(factoryReq, j, r.status);
     } catch (error) {
       metrics.pizzaPurchase(false, Date.now() - start, 0, 0);
-      logger.factoryLogger(factoryReq, {error: error.message}, r.status);
+      logger.factoryLogger(factoryReq, { error: error.message }, 500);
       return res.status(500).send({ message: 'Failed to fulfill order at factory', error: error.message });
     }
     const latency = Date.now() - start;
