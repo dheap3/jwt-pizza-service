@@ -13,7 +13,7 @@ class Logger {
     res.send = (resBody) => {
       const logData = {
         method: req.method,
-        path: req.originalUrl,
+        path: req.hostname + req.originalUrl,
         statusCode: res.statusCode,
 
         authorized: !!req.headers.authorization,
@@ -22,7 +22,6 @@ class Logger {
         reqBody: JSON.stringify(req.body),
         resBody: JSON.stringify(resBody),
         ip: req.ip,
-        path: req.hostname + req.originalUrl,
       };
 
       this.log(this.statusToLogLevel(res.statusCode), 'http', logData);
